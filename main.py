@@ -1,7 +1,7 @@
 import math
 import sys
 
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCore import QPointF, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from overlay import SnowOverlay
+from window_overlay import WindowSnowOverlay
 
 
 def make_snow_icon() -> QIcon:
@@ -76,8 +76,8 @@ class ControlPanel(QWidget):
         layout.addWidget(title)
 
         description = QLabel(
-            "Prototype 1 · Falling snow\n"
-            "Accumulation will come next."
+            "Prototype 2 · Falling snow + Window Accumulation\n"
+            "Select a window to see snow accumulate."
         )
         layout.addWidget(description)
 
@@ -89,6 +89,15 @@ class ControlPanel(QWidget):
         self.slider.setValue(35)
         self.slider.valueChanged.connect(self.change_intensity)
         layout.addWidget(self.slider)
+        self.target_label = QLabel("No window selected")
+        self.target_label.setWordWrap(True)
+        layout.addWidget(self.target_label)
+
+        self.select_button = QPushButton("Select a window")
+        self.select_button.clicked.connect(
+            controller.begin_window_selection
+        )
+        layout.addWidget(self.select_button)
 
         self.pause_button = QPushButton("Pause")
         self.pause_button.clicked.connect(controller.toggle_pause)
@@ -144,7 +153,7 @@ class SnowApplication:
         self.paused = False
         self.icon = make_snow_icon()
 
-        self.overlay = SnowOverlay(app.primaryScreen())
+        self.overlay = WindowSnowOverlay(app.primaryScreen())
         self.tray = QSystemTrayIcon(self.icon, app)
         self.panel = ControlPanel(self)
 
@@ -194,8 +203,40 @@ class SnowApplication:
         self.pause_action.setText(text)
         self.panel.pause_button.setText(text)
 
+    def begin_window_selection(self):
+        self.panel.select_button.setEnabled(False)
+        self.panel.target_label.setText(
+            "Switch to your target window within 3 seconds."
+        )
+
+        self.tray.setToolTip(
+            "Desktop Snow: select a window within 3 seconds"
+        )
+
+        self.panel.hide()
+
+        QTimer.singleShot(3000, self.finish_window_selection)
+
+    def finish_window_selection(self):
+        selected = self.overlay.select_foreground_window()
+
+        self.panel.select_button.setEnabled(True)
+
+        if selected:
+            message = "Window selected — snow will collect on top."
+        else:
+            message = (
+                "Selection failed. Try again and click "
+                "inside CMD before the 3 seconds finish."
+            )
+
+        self.panel.target_label.setText(message)
+        self.tray.setToolTip("Desktop Snow")
+        self.show_controls()
+
     def quit(self):
         self.overlay.timer.stop()
+        self.overlay.tracking_timer.stop()
         self.tray.hide()
         self.app.quit()
 
