@@ -76,8 +76,8 @@ class ControlPanel(QWidget):
         layout.addWidget(title)
 
         description = QLabel(
-            "Prototype 3 · Collapsing snow\n"
-            "Close selected window to collapse snow."
+            "Prototype 4 · Snow fall effects\n"
+            "Snow behaves more naturally."
         )
         layout.addWidget(description)
 
